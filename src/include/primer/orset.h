@@ -1,8 +1,8 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 namespace bustub {
 
@@ -61,8 +61,8 @@ class ORSet {
 
  private:
   // TODO(student): Add your private memeber variables to represent ORSet.
-    std::set<std::pair<T, uid_t>> elements_; // Pair of element and unique tag
-    std::set<std::pair<T, uid_t>> tombstones_; // Pair of removed element and its tag
+  std::set<std::pair<T, uid_t>> elements_;    // Pair of element and unique tag
+  std::set<std::pair<T, uid_t>> tombstones_;  // Pair of removed element and its tag
 };
 
 }  // namespace bustub
