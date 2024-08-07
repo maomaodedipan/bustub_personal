@@ -29,7 +29,9 @@ BasicPageGuard::~BasicPageGuard(){
 };  // NOLINT
 
 auto BasicPageGuard::UpgradeRead() -> ReadPageGuard {
-    this->page_->RLatch();
+    if (page_ != nullptr) {
+    page_->RLatch();
+    }
     ReadPageGuard read_page_guard(this->bpm_,this->page_);
     page_ = nullptr;
     bpm_ = nullptr;
@@ -37,7 +39,9 @@ auto BasicPageGuard::UpgradeRead() -> ReadPageGuard {
 }
 
 auto BasicPageGuard::UpgradeWrite() -> WritePageGuard { 
-    this->page_->WLatch();
+    if (page_ != nullptr) {
+    page_->WLatch();
+    }
     WritePageGuard write_page_guard(this->bpm_,this->page_);
     page_ = nullptr;
     bpm_ = nullptr;
