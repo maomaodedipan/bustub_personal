@@ -111,7 +111,6 @@ auto DiskExtendibleHashTable<K, V, KC>::Insert(const K &key, const V &value, Tra
   if (bucket_page_id == INVALID_PAGE_ID) {
       return InsertToNewBucket(htable_dir, bucket_idx, key, value);
   }
-  dir_guard.Drop();
 
   auto bucket_page = bpm_->FetchPageWrite(bucket_page_id);
   auto htable_bucket = reinterpret_cast<ExtendibleHTableBucketPage<K, V, KC> *>(bucket_page.GetDataMut());
@@ -171,13 +170,13 @@ auto DiskExtendibleHashTable<K, V, KC>::Insert(const K &key, const V &value, Tra
 template <typename K, typename V, typename KC>
 auto DiskExtendibleHashTable<K, V, KC>::InsertToNewDirectory(ExtendibleHTableHeaderPage *header, uint32_t directory_idx,
                                                              uint32_t hash, const K &key, const V &value) -> bool {
- page_id_t new_dir_page_id;
+ page_id_t new_dir_page_id = INVALID_PAGE_ID;
  auto new_dir_page_basic_guard = bpm_->NewPageGuarded(&new_dir_page_id);
  auto new_dir_page_write_guard = new_dir_page_basic_guard.UpgradeWrite();
  auto new_dir_page = new_dir_page_write_guard.AsMut<ExtendibleHTableDirectoryPage>();
 
- header->SetDirectoryPageId(directory_idx,new_dir_page_id);
  new_dir_page->Init(directory_max_depth_);
+ header->SetDirectoryPageId(directory_idx,new_dir_page_id);
  uint32_t bucket_index = new_dir_page->HashToBucketIndex(hash);
  return InsertToNewBucket(new_dir_page,bucket_index,key,value);
 }
@@ -185,13 +184,13 @@ auto DiskExtendibleHashTable<K, V, KC>::InsertToNewDirectory(ExtendibleHTableHea
 template <typename K, typename V, typename KC>
 auto DiskExtendibleHashTable<K, V, KC>::InsertToNewBucket(ExtendibleHTableDirectoryPage *directory, uint32_t bucket_idx,
                                                           const K &key, const V &value) -> bool {
-  page_id_t new_bucket_page_id;
+  page_id_t new_bucket_page_id = INVALID_PAGE_ID;
   auto new_bucket_page_basic_guard = bpm_->NewPageGuarded(&new_bucket_page_id);
   auto new_bucket_page_write_guard = new_bucket_page_basic_guard.UpgradeWrite();
   auto new_bucket_page = new_bucket_page_write_guard.AsMut<ExtendibleHTableBucketPage<K, V, KC>>();
-  
+
+  new_bucket_page->Init(bucket_max_size_);  
   directory->SetBucketPageId(bucket_idx, new_bucket_page_id);
-  new_bucket_page->Init(bucket_max_size_);
   return new_bucket_page->Insert(key,value,cmp_);
 }
 

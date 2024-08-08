@@ -3,25 +3,31 @@
 
 namespace bustub {
 
-BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {}
+BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {
+  bpm_ = that.bpm_;
+  page_ = that.page_;
+  that.page_ = nullptr;
+  that.bpm_ = nullptr;
+  this->is_dirty_ = that.is_dirty_;
+}
 
 void BasicPageGuard::Drop() {
-    if (page_ != nullptr){
-      bpm_->UnpinPage(page_->GetPageId(), is_dirty_);
-    }
-    page_ = nullptr;
-    bpm_ = nullptr;
-    //guard_.is_dirty_ = false;
+  if (bpm_ != nullptr && page_ != nullptr) {
+    bpm_->UnpinPage(page_->GetPageId(), is_dirty_);
+  }
+  bpm_ = nullptr;
+  page_ = nullptr;
 }
 
 auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & {
-    Drop(); 
-    page_ = that.page_;
-    bpm_ = that.bpm_;
-    is_dirty_ = that.is_dirty_;
-    that.page_ = nullptr;
-    that.bpm_ = nullptr;
-    return *this;
+  // 释放this当前持有的资源
+  Drop();
+  bpm_ = that.bpm_;
+  page_ = that.page_;
+  that.page_ = nullptr;
+  that.bpm_ = nullptr;
+  this->is_dirty_ = that.is_dirty_;
+  return *this;
 }
 
 BasicPageGuard::~BasicPageGuard(){
@@ -29,23 +35,23 @@ BasicPageGuard::~BasicPageGuard(){
 };  // NOLINT
 
 auto BasicPageGuard::UpgradeRead() -> ReadPageGuard {
-    if (page_ != nullptr) {
+  if (page_ != nullptr) {
     page_->RLatch();
-    }
-    ReadPageGuard read_page_guard(this->bpm_,this->page_);
-    page_ = nullptr;
-    bpm_ = nullptr;
-    return read_page_guard;
+  }
+  auto read_page_guard = ReadPageGuard(bpm_, page_);
+  bpm_ = nullptr;
+  page_ = nullptr;
+  return read_page_guard;
 }
 
 auto BasicPageGuard::UpgradeWrite() -> WritePageGuard { 
-    if (page_ != nullptr) {
+  if (page_ != nullptr) {
     page_->WLatch();
-    }
-    WritePageGuard write_page_guard(this->bpm_,this->page_);
-    page_ = nullptr;
-    bpm_ = nullptr;
-    return  write_page_guard;
+  }
+  auto write_page_guard = WritePageGuard(bpm_, page_);
+  bpm_ = nullptr;
+  page_ = nullptr;
+  return write_page_guard;
  }
 
 ReadPageGuard::ReadPageGuard(BufferPoolManager *bpm, Page *page) {
@@ -57,20 +63,17 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
 };
 
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & { 
-    Drop(); 
-    guard_ = std::move(that.guard_);
-    return *this;
+  Drop();
+  guard_ = std::move(that.guard_);
+  return *this;
 }
 
 void ReadPageGuard::Drop() {
-    auto &basic_guard = this->guard_;
-    if (basic_guard.page_ != nullptr) {
-      basic_guard.bpm_->UnpinPage(basic_guard.page_->GetPageId(), basic_guard.is_dirty_);
-      basic_guard.page_->RUnlatch();
-    }
-    guard_.page_ = nullptr;
-    guard_.bpm_ = nullptr;
-    //guard_.is_dirty_ = false;
+  if (guard_.page_ != nullptr) {
+    guard_.page_->WUnlatch();
+  }
+  guard_.is_dirty_ = true;
+  guard_.Drop();
 }
 
 ReadPageGuard::~ReadPageGuard() {
@@ -85,17 +88,18 @@ WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
     guard_ = std::move(that.guard_);
 };
 
-auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & { return *this; }
+auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & { 
+  Drop();
+  guard_ = std::move(that.guard_);
+  return *this;
+ }
 
 void WritePageGuard::Drop() {
-    auto &basic_guard = this->guard_;
-    if (basic_guard.page_ != nullptr) {
-      basic_guard.bpm_->UnpinPage(basic_guard.page_->GetPageId(), basic_guard.is_dirty_);
-      basic_guard.page_->WUnlatch();
-    }
-    guard_.page_ = nullptr;
-    guard_.bpm_ = nullptr;
-    //guard_.is_dirty_ = false;
+  if (guard_.page_ != nullptr) {
+    guard_.page_->WUnlatch();
+  }
+  guard_.is_dirty_ = true;
+  guard_.Drop();
 }
 
 WritePageGuard::~WritePageGuard() {
